@@ -1,0 +1,16 @@
+services:
+  n8n:
+    build: .
+    platform: linux/arm64
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+      - ./input:/music/input
+      - ./output:/music/output
+      - ./processing:/music/processing
+    restart: unless-stopped
