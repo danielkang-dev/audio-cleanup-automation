@@ -1,0 +1,215 @@
+{
+  "name": "Audio Cleanup",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "78d915de-f675-4b54-a250-36718fc61a7e",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\n// Clear out any leftover temp files from previous crashed runs\ntry {\n  execSync('find /music/processing -type f -delete');\n} catch(e) {}\n\n// Find all MP3s in the input folder\nlet result;\ntry {\n  result = execSync('find /music/input -name \"*.mp3\" -type f')\n    .toString()\n    .trim();\n} catch(e) {\n  result = '';\n}\n\n// If folder is empty, stop here quietly\nif (!result) {\n  return [];\n}\n\nconst files = result.split('\\n').filter(f => f.length > 0);\n\nreturn files.map(filePath => ({\n  json: { \n    filePath,\n    fileName: filePath.split('/').pop(),\n    status: 'queued'\n  }\n}));"
+      },
+      "id": "fe692592-b087-468f-8f3c-e23448bfe296",
+      "name": "Scan Input Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { filePath, fileName } = item.json;\n\n  const timestamp = Date.now();\n  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');\n  const workingName = `${timestamp}_${safeName}`;\n  const processingPath = `/music/processing/${workingName}`;\n\n  try {\n    execSync(`mv \"${filePath}\" \"${processingPath}\"`);\n\n    results.push({ json: {\n      originalName: fileName,\n      workingName,\n      processingPath,\n      status: 'processing'\n    }});\n\n  } catch(e) {\n    results.push({ json: {\n      originalName: fileName,\n      workingName,\n      processingPath: filePath,\n      status: 'move_failed',\n      error: e.message.substring(0, 200)\n    }});\n  }\n}\n\nreturn results;"
+      },
+      "id": "9d4c80bd-529e-4c0c-b12c-d323601dea83",
+      "name": "Move to Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { processingPath, workingName, originalName } = item.json;\n  const trimmedPath = `/music/processing/trimmed_${workingName}`;\n\n  try {\n    execSync(`ffmpeg -i \"${processingPath}\" -af \"silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB:stop_periods=-1:stop_silence=0.1:stop_threshold=-50dB\" \"${trimmedPath}\" -y 2>&1`);\n    execSync(`rm -f \"${processingPath}\"`);\n\n    results.push({ json: {\n      originalName,\n      workingName,\n      processingPath: trimmedPath,\n      status: 'trimmed'\n    }});\n\n  } catch(e) {\n    try {\n      execSync(`cp \"${processingPath}\" \"${trimmedPath}\"`);\n      execSync(`rm -f \"${processingPath}\"`);\n    } catch(e2) {}\n\n    results.push({ json: {\n      originalName,\n      workingName,\n      processingPath: trimmedPath,\n      status: 'trim_skipped',\n      trimError: e.message.substring(0, 200)\n    }});\n  }\n}\n\nreturn results;"
+      },
+      "id": "fdb301fb-dc58-4103-9399-3aeb788d833c",
+      "name": "Trim Silence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { processingPath, workingName, originalName } = item.json;\n\n  let loudnormStats = null;\n\n  try {\n    const analysis = execSync(\n      `ffmpeg -i \"${processingPath}\" -af loudnorm=I=-14:TP=-1:LRA=11:print_format=json -f null /dev/null 2>&1`\n    ).toString();\n\n    const jsonMatch = analysis.match(/\\{[\\s\\S]*?\"input_i\"[\\s\\S]*?\\}/);\n    if (jsonMatch) {\n      loudnormStats = JSON.parse(jsonMatch[0]);\n    }\n  } catch(e) {}\n\n  results.push({ json: {\n    originalName,\n    workingName,\n    processingPath,\n    loudnormStats,\n    status: loudnormStats ? 'analyzed' : 'analysis_skipped'\n  }});\n}\n\nreturn results;"
+      },
+      "id": "1de43206-b329-43b1-a166-cdb5896c098a",
+      "name": "Normalize Pass 1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { processingPath, workingName, originalName, loudnormStats } = item.json;\n  const normalizedPath = `/music/processing/normalized_${workingName}`;\n\n  try {\n    let filter;\n\n    if (loudnormStats) {\n      filter = `loudnorm=I=-14:TP=-1:LRA=11:measured_I=${loudnormStats.input_i}:measured_TP=${loudnormStats.input_tp}:measured_LRA=${loudnormStats.input_lra}:measured_thresh=${loudnormStats.input_thresh}:offset=${loudnormStats.target_offset}:linear=true`;\n    } else {\n      filter = `loudnorm=I=-14:TP=-1:LRA=11`;\n    }\n\n    execSync(`ffmpeg -i \"${processingPath}\" -af \"${filter}\" \"${normalizedPath}\" -y 2>&1`);\n    execSync(`rm -f \"${processingPath}\"`);\n\n    results.push({ json: {\n      originalName,\n      workingName,\n      processingPath: normalizedPath,\n      status: 'normalized'\n    }});\n\n  } catch(e) {\n    try {\n      execSync(`cp \"${processingPath}\" \"${normalizedPath}\"`);\n      execSync(`rm -f \"${processingPath}\"`);\n    } catch(e2) {}\n\n    results.push({ json: {\n      originalName,\n      workingName,\n      processingPath: normalizedPath,\n      status: 'normalization_skipped',\n      normError: e.message.substring(0, 200)\n    }});\n  }\n}\n\nreturn results;"
+      },
+      "id": "3b6398c0-caf7-4838-8b14-31068acd86ca",
+      "name": "Normalize Pass 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { processingPath, workingName, originalName } = item.json;\n\n  let metadata = {\n    title: '',\n    artist: '',\n    album: '',\n    year: '',\n    fingerprintStatus: 'not_attempted'\n  };\n\n  try {\n    const fpcalcOutput = execSync(`fpcalc \"${processingPath}\"`).toString();\n\n    const duration = fpcalcOutput.match(/DURATION=(\\d+)/)?.[1];\n    const fingerprint = fpcalcOutput.match(/FINGERPRINT=(.+)/)?.[1]?.trim();\n\n    if (duration && fingerprint) {\n      const response = execSync(\n        `curl -s \"https://api.acoustid.org/v2/lookup?client=YOUR_ACOUSTID_API_KEY&meta=recordings+releasegroups&duration=${duration}&fingerprint=${fingerprint}\"`\n      ).toString();\n\n      const data = JSON.parse(response);\n\n      if (data.status === 'ok' && data.results?.length > 0) {\n        const recording = data.results[0].recordings?.[0];\n\n        if (recording) {\n          metadata.title = recording.title || '';\n          metadata.artist = recording.artists?.[0]?.name || '';\n          metadata.album = recording.releasegroups?.[0]?.title || '';\n          metadata.year = recording.releasegroups?.[0]?.['first-release-date']?.substring(0, 4) || '';\n          metadata.fingerprintStatus = 'matched';\n        } else {\n          metadata.fingerprintStatus = 'no_recording_found';\n        }\n      } else {\n        metadata.fingerprintStatus = 'no_match';\n      }\n    }\n\n    // Respect AcoustID rate limits\n    execSync('sleep 1');\n\n  } catch(e) {\n    metadata.fingerprintStatus = 'error';\n    metadata.fingerprintError = e.message.substring(0, 200);\n  }\n\n  results.push({ json: {\n    originalName,\n    workingName,\n    processingPath,\n    ...metadata,\n    status: metadata.fingerprintStatus === 'matched' ? 'tagged' : 'untagged'\n  }});\n}\n\nreturn results;"
+      },
+      "id": "2ce5587d-2811-4cda-b7b3-c8a6665c861a",
+      "name": "Fingerprint and Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { processingPath, originalName, workingName, title, artist, album, year, fingerprintStatus } = item.json;\n\n  const outputPath = `/music/output/${originalName}`;\n\n  try {\n    let metaFlags = '';\n    if (title)  metaFlags += ` -metadata title=\"${title.replace(/\"/g, '\\\\\"')}\"`;\n    if (artist) metaFlags += ` -metadata artist=\"${artist.replace(/\"/g, '\\\\\"')}\"`;\n    if (album)  metaFlags += ` -metadata album=\"${album.replace(/\"/g, '\\\\\"')}\"`;\n    if (year)   metaFlags += ` -metadata date=\"${year}\"`;\n\n    execSync(`ffmpeg -i \"${processingPath}\" -c copy${metaFlags} \"${outputPath}\" -y 2>&1`);\n\n  } catch(e) {\n    try {\n      execSync(`cp \"${processingPath}\" \"${outputPath}\"`);\n    } catch(e2) {\n      results.push({ json: { originalName, status: 'failed', error: e2.message }});\n      continue;\n    }\n  }\n\n  results.push({ json: {\n    originalName,\n    outputPath,\n    title,\n    artist,\n    album,\n    year,\n    fingerprintStatus,\n    status: 'complete'\n  }});\n}\n\nreturn results;"
+      },
+      "id": "04d4c63c-8d5d-4bca-ae10-85e5c8555690",
+      "name": "Write Metadata and Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const { originalName, outputPath, title, artist, album, year, fingerprintStatus } = item.json;\n\n  // Clean up all temp files for this song\n  try {\n    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');\n    execSync(`find /music/processing -name \"*${safeName}*\" -delete 2>/dev/null || true`);\n  } catch(e) {}\n\n  // Write to log file\n  const timestamp = new Date().toISOString();\n  const metadataFound = fingerprintStatus === 'matched';\n\n  const logLine = metadataFound\n    ? `[${timestamp}] SUCCESS | ${originalName} | Title: ${title} | Artist: ${artist} | Album: ${album} | Year: ${year}`\n    : `[${timestamp}] PROCESSED (no metadata) | ${originalName} | Reason: ${fingerprintStatus} | Needs manual tagging`;\n\n  try {\n    execSync(`echo ${JSON.stringify(logLine)} >> /music/output/processing_log.txt`);\n  } catch(e) {}\n\n  results.push({ json: {\n    originalName,\n    status: 'complete',\n    metadataFound,\n    message: metadataFound\n      ? `✓ ${title} by ${artist}`\n      : `✓ Processed (no metadata): ${originalName}`\n  }});\n}\n\nreturn results;"
+      },
+      "id": "1011b828-a368-4e8b-949d-6f9300fd5dda",
+      "name": "Log and Cleanup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scan Input Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Input Folder": {
+      "main": [
+        [
+          {
+            "node": "Move to Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move to Processing": {
+      "main": [
+        [
+          {
+            "node": "Trim Silence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trim Silence": {
+      "main": [
+        [
+          {
+            "node": "Normalize Pass 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Pass 1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Pass 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Pass 2": {
+      "main": [
+        [
+          {
+            "node": "Fingerprint and Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fingerprint and Metadata": {
+      "main": [
+        [
+          {
+            "node": "Write Metadata and Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Metadata and Save": {
+      "main": [
+        [
+          {
+            "node": "Log and Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

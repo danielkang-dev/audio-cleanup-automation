@@ -1,5 +1,5 @@
-MUSIC PIPELINE — HOW TO USE
-============================
+AUDIO CLEANUP AUTOMATION — HOW TO USE
+======================================
 
 FIRST TIME SETUP (do this once)
 ---------------------------------

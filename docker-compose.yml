@@ -3,10 +3,8 @@ services:
     build: .
     platform: linux/arm64
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=false
-      - NODE_FUNCTION_ALLOW_EXTERNAL=*
       - NODE_FUNCTION_ALLOW_BUILTIN=*
     volumes:
       - ./n8n_data:/home/node/.n8n

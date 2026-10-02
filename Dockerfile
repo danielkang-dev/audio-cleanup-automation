@@ -1,8 +1,8 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 RUN apk add --no-cache ffmpeg chromaprint curl
 
-RUN npm install -g n8n --legacy-peer-deps
+RUN npm install -g n8n@2.42.2 --legacy-peer-deps
 
 WORKDIR /home/node
 USER node

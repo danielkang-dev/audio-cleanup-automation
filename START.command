@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-echo "Starting Music Pipeline..."
+echo "Starting Audio Cleanup Automation..."
 
 # Start Docker Desktop if not running
 open -a Docker
@@ -17,5 +17,5 @@ sleep 5
 # Open browser
 open http://localhost:5678
 
-echo "Music Pipeline is running!"
+echo "Audio Cleanup Automation is running!"
 echo "Drop your MP3s into the 'input' folder, then click the button in your browser."

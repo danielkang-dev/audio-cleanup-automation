@@ -1,4 +1,4 @@
-# Audio Cleanup Automation - n8n audio pipeline
+# Audio Cleanup Automation
 
 A self-contained, Dockerised pipeline that cleans, normalises and auto-tags MP3 files. Built with n8n, ffmpeg and AcoustID fingerprinting. Designed to be handed to a non-technical user as a folder they double-click.
 
@@ -39,20 +39,24 @@ STOP.command   → shuts everything down cleanly
 
 1. Install Docker Desktop
 2. Clone this repo
-3. Double-click `START.command`
-4. Add your AcoustID API key to the fingerprint node in n8n
-5. Drop MP3s into `input/` and run the workflow
+3. Double-click `START.command`. The first run builds the image, so it takes a few minutes. If the browser opens before n8n is ready, refresh the page.
+4. Create the n8n owner account when prompted. It is stored locally in `n8n_data/` and never leaves your machine.
+5. Import the workflow: create a new workflow, open the `⋯` menu in the top right, choose **Import from File…** and select `workflow/audio-cleanup.json`. Save it.
+6. Get a free AcoustID API key at https://acoustid.org/new-application. Open the **Fingerprint and Metadata** node and replace `YOUR_ACOUSTID_API_KEY` with your key. Save again.
+7. Drop MP3s into `input/` and run the workflow
 
 End-user instructions are in `README.txt`.
 
 ## Security notes
 
-This is built as a local, single-user tool bound to `localhost`. Two settings reflect that and are deliberate:
+This is built as a local, single-user tool.
 
-- `N8N_BASIC_AUTH_ACTIVE=false` — no login, because the instance is never exposed beyond the local machine
-- `NODE_FUNCTION_ALLOW_BUILTIN=*` — Code nodes need `child_process` to call ffmpeg and fpcalc
+- Port binding — `docker-compose.yml` publishes n8n on `127.0.0.1:5678` only, so it is not reachable from other machines on the network
+- Login — on first launch n8n asks you to create an owner account (email and password), and you sign in with it after that
+- `NODE_FUNCTION_ALLOW_BUILTIN=*` — Code nodes need `child_process` to call ffmpeg, fpcalc and curl. No external npm modules are used or allowed.
+- AcoustID key — the workflow in this repo ships with a placeholder. Your own key is typed into the node and lives only in your local `n8n_data/`, in plain text inside the workflow.
 
-Both would need tightening before this was run on a server or exposed to a network. Auth on, and the builtin allowance narrowed to what's actually used.
+The builtin allowance would need narrowing to what's actually used (`child_process`) before this was run on a server or exposed to a network.
 
 `n8n_data/`, `input/`, `output/` and `processing/` are gitignored. `n8n_data/` holds `database.sqlite`, which stores credentials — it's runtime data, not source, and it's deliberately kept out of this repo.
 
@@ -60,7 +64,9 @@ Both would need tightening before this was run on a server or exposed to a netwo
 
 | File | Purpose |
 |---|---|
-| `Dockerfile` | Custom image: n8n + ffmpeg + Chromaprint on `node:20-alpine` |
+| `Dockerfile` | Custom image: n8n 2.42.2 + ffmpeg + Chromaprint on `node:24-alpine` |
 | `docker-compose.yml` | Container config and volume mounts |
+| `workflow/audio-cleanup.json` | The nine-node n8n workflow, ready to import |
 | `START.command` / `STOP.command` | One-click launch and shutdown |
 | `README.txt` | End-user instructions |
+| `LICENSE` | MIT licence |

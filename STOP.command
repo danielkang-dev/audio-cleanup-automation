@@ -1,8 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-echo "Stopping Music Pipeline..."
+echo "Stopping Audio Cleanup Automation..."
 
 docker compose down
 
-echo "Music Pipeline has stopped. Safe to close this window."
+echo "Audio Cleanup Automation has stopped. Safe to close this window."
