@@ -1,4 +1,4 @@
-# Music Pipeline
+# Audio Cleanup Automation - n8n audio pipeline
 
 A self-contained, Dockerised pipeline that cleans, normalises and auto-tags MP3 files. Built with n8n, ffmpeg and AcoustID fingerprinting. Designed to be handed to a non-technical user as a folder they double-click.
 
