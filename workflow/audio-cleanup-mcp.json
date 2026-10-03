@@ -1,0 +1,73 @@
+{
+  "name": "Audio Cleanup MCP",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "bearerAuth",
+        "path": "audio-cleanup"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0aa4c02a-0efd-4a80-af01-a88113748c49",
+      "name": "MCP Server Trigger",
+      "webhookId": "e8b948e0-9070-4b32-8502-e0549840af6a",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "fC2jStqR8ftYh76F",
+          "name": "Audio Cleanup MCP Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Cleans, loudness-normalises and tags every MP3 in the input folder, then reports the results. Takes no input.",
+        "workflowId": {
+          "__rl": true,
+          "value": "xtpPPwo296Cx7LOL",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/xtpPPwo296Cx7LOL",
+          "cachedResultName": "Music Cleanup"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        96,
+        208
+      ],
+      "id": "720dadba-5024-4d45-aeb0-80fd00bf6551",
+      "name": "run_audio_cleanup"
+    }
+  ],
+  "connections": {
+    "run_audio_cleanup": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "pinData": {}
+}

@@ -3,3 +3,4 @@ input/
 output/
 processing/
 .DS_Store
+.env.mcp

@@ -44,8 +44,13 @@ STOP.command   → shuts everything down cleanly
 5. Import the workflow: create a new workflow, open the `⋯` menu in the top right, choose **Import from File…** and select `workflow/audio-cleanup.json`. Save it.
 6. Get a free AcoustID API key at https://acoustid.org/new-application. Open the **Fingerprint and Metadata** node and replace `YOUR_ACOUSTID_API_KEY` with your key. Save again.
 7. Drop MP3s into `input/` and run the workflow
+8. Optional, to run it from Claude: import `workflow/audio-cleanup-mcp.json` the same way. The imported wrapper does not know which workflow to run, because workflow IDs differ between installs. Open the **run_audio_cleanup** node, click the **Workflow** field, choose **From list**, and pick **Audio Cleanup**. Then set the bearer token on the **MCP Server Trigger** node (create a new Bearer Auth credential; the token is not stored in this repo) and save.
 
 End-user instructions are in `README.txt`.
+
+## Known behaviour
+
+- Empty input folder — if `input/` has no MP3s when the workflow runs from Claude, the tool reports `The workflow did not return a response`. This is expected, not a fault: the scan finds nothing and stops quietly. Drop in at least one MP3 and run it again.
 
 ## Security notes
 
@@ -66,7 +71,8 @@ The builtin allowance would need narrowing to what's actually used (`child_proce
 |---|---|
 | `Dockerfile` | Custom image: n8n 2.42.2 + ffmpeg + Chromaprint on `node:24-alpine` |
 | `docker-compose.yml` | Container config and volume mounts |
-| `workflow/audio-cleanup.json` | The nine-node n8n workflow, ready to import |
+| `workflow/audio-cleanup.json` | The n8n audio workflow, ready to import: the nine processing nodes plus a trigger that lets another workflow call it |
+| `workflow/audio-cleanup-mcp.json` | Two-node MCP wrapper that exposes the audio workflow to Claude as `run_audio_cleanup` |
 | `START.command` / `STOP.command` | One-click launch and shutdown |
 | `README.txt` | End-user instructions |
 | `LICENSE` | MIT licence |
