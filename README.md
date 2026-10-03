@@ -48,6 +48,28 @@ STOP.command   → shuts everything down cleanly
 
 End-user instructions are in `README.txt`.
 
+## Run it from Claude
+
+Once step 8 of Setup is done, Claude can run the cleanup for you. Instead of opening n8n and clicking a button, you drop MP3s into `input/` and ask Claude to clean them up.
+
+1. Make sure the app is running (double-click `START.command`) and the **Audio Cleanup MCP** workflow is switched to **Active** in n8n.
+2. Connect Claude Code to it. In a terminal, run this once, replacing `YOUR_TOKEN` with the token you set in n8n:
+
+   ```
+   claude mcp add --transport http audio-cleanup http://127.0.0.1:5678/mcp/audio-cleanup --header "Authorization: Bearer YOUR_TOKEN"
+   ```
+
+3. Check it worked: `claude mcp list` should show `audio-cleanup` as **Connected**.
+4. Drop one or more MP3s into `input/`, then ask Claude: "Run the audio cleanup." Claude uses the `run_audio_cleanup` tool and reports each file and whether tags were found.
+
+Cleaned files appear in `output/`, and `output/processing_log.txt` records what happened.
+
+Things to know:
+
+- The address only works on your own computer (`127.0.0.1`), and every request needs the token. Keep the token out of this repo. A gitignored file such as `.env.mcp` is a good place for it.
+- The tool takes no options. It processes every MP3 in `input/`.
+- It takes a while, since the tool only replies once every file is finished. In a test on an Apple Silicon Mac, two MP3s (5.8 MB and 8.7 MB) took about 40 seconds in total, roughly 20 seconds per file. Start with a few files and expect longer for bigger folders.
+
 ## Known behaviour
 
 - Empty input folder — if `input/` has no MP3s when the workflow runs from Claude, the tool reports `The workflow did not return a response`. This is expected, not a fault: the scan finds nothing and stops quietly. Drop in at least one MP3 and run it again.
