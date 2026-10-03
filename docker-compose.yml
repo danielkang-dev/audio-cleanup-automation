@@ -11,4 +11,5 @@ services:
       - ./input:/music/input
       - ./output:/music/output
       - ./processing:/music/processing
+      - ./originals:/music/originals
     restart: unless-stopped

@@ -2,5 +2,6 @@ n8n_data/
 input/
 output/
 processing/
+originals/
 .DS_Store
 .env.mcp
