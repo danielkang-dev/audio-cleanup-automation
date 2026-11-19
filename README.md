@@ -2,6 +2,10 @@
 
 A self-contained, Dockerised pipeline that cleans, normalises and auto-tags MP3 files. Built with n8n, ffmpeg and AcoustID fingerprinting. Designed to be handed to a non-technical user as a folder they double-click.
 
+![Table comparing two test files before and after processing: bitrate, loudness, peak, duration and tags](docs/before-after.png)
+
+*Two test files before and after the 3 Oct 2026 fix: source bitrate kept, loudness brought to about −14 LUFS.*
+
 ## What it does
 
 Drop MP3s into `input/`, run one workflow, get back files with:
@@ -100,6 +104,10 @@ This is built as a local, single-user tool.
 The builtin allowance would need narrowing to what's actually used (`child_process`) before this was run on a server or exposed to a network.
 
 `n8n_data/`, `input/`, `output/`, `processing/` and `originals/` are gitignored. The folders are not in the repo; Docker creates them the first time you run `START.command`. `n8n_data/` holds `database.sqlite`, which stores credentials — it's runtime data, not source, and it's deliberately kept out of this repo.
+
+## My role
+
+I set the requirements and made the design decisions; AI wrote the code. I built the MCP endpoint in n8n by hand.
 
 ## Repo contents
 
